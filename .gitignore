@@ -1,0 +1,40 @@
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Raw Data Lake Files (50k+ large JSON outputs)
+data/raw/*.json
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/curated/*
+!data/curated/.gitkeep
+data/hdfs_sync_manifest.json
+
+# Next.js Node & Build Directories
+node_modules/
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/build/
+dashboard/.vercel/
+dashboard/*.tsbuildinfo
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
