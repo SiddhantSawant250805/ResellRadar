@@ -7,6 +7,7 @@ Set up local pseudo-distributed Hadoop cluster, push raw data to HDFS
 Handle data quality at the source: rate limiting, retry logic, schema consistency in raw JSON
 Own /data/raw/ and the scraper/ module
 Deliverable: 50k+ clean raw listings landing reliably in HDFS
+
 Person 2 — Big Data Processing Engineer (Core BDA component)
 
 Owns: Spark cleaning, entity resolution, feature engineering
@@ -16,6 +17,7 @@ Build entity_resolution_minhash.py — MinHash LSH clustering (the technical cen
 Build feature_engineering.py — depreciation curves, resale velocity, regional price variance via Spark SQL
 Own /data/processed/, /data/curated/, and most of spark_jobs/
 Deliverable: canonicalized, deduplicated dataset + aggregated analytics tables
+
 Person 3 — Graph & Visualization Engineer (Presentation layer)
 
 Owns: Graph construction, dashboard, demo
