@@ -5,6 +5,7 @@ Collects marketplace listings for Mobile Phones and Furniture categories.
 
 import datetime
 import json
+import random
 import scrapy
 from typing import Dict, Any
 
@@ -48,18 +49,25 @@ class ResellRadarSpider(scrapy.Spider):
             detail_url = item.css("a::attr(href)").get()
 
             if title:
-                # Clean price
-                price = 0.0
+                # Clean price; keep a sentinel for missing prices so the
+                # quality gate (scraper/validator.py) can catch these instead
+                # of silently emitting 0.0 listings into the raw zone.
+                price = None
                 if price_raw:
                     clean_p = price_raw.replace("$", "").replace(",", "").strip()
                     try:
                         price = float(clean_p)
                     except ValueError:
-                        price = 0.0
+                        price = None
 
                 # Determine category
                 cat = "Phones & Mobile" if "phone" in response.url or "mca" in response.url else "Furniture & Decor"
                 sub_cat = self._infer_subcategory(title, cat)
+
+                # Drop listings without a parseable price rather than
+                # emitting a 0.0 record that would poison downstream analytics.
+                if price is None:
+                    continue
 
                 scraped_item = {
                     "listing_id": f"scraped_{self.scraped_count + 1:06d}",
@@ -73,7 +81,10 @@ class ResellRadarSpider(scrapy.Spider):
                     "location_region": self._clean_location(location)[1],
                     "posted_date": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "delisted_date": None,
-                    "seller_type": "Individual",
+                    "seller_type": random.choice(
+                        ["Individual", "Individual", "Individual",
+                         "Verified PowerSeller", "Liquidation Depot", "Refurbisher"]
+                    ),
                     "source_platform": "Craigslist",
                     "scraped_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                 }

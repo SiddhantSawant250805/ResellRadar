@@ -49,8 +49,19 @@ SELLER_TYPES = ["Individual", "Individual", "Individual", "Verified PowerSeller"
 SOURCES = ["Craigslist", "Facebook Marketplace", "OfferUp", "eBay Refurbished"]
 CONDITIONS = ["Like New - Unlocked with Box", "Excellent Condition - Minor Scuffs", "Good Condition - Fully Functional", "Fair - Battery Health 84%", "Mint Condition in Original Box"]
 
-def generate_listing(item_id: int, category_filter: str = "all") -> Dict[str, Any]:
+def _new_run_id() -> str:
+    """Generate a unique run id so listing IDs never collide across batches.
+
+    Multiple generate_batch() calls in the same second (or across machines)
+    must not reuse primary keys in the raw zone.
+    """
+    return f"{int(time.time() * 1000) % 100000000:08d}{random.randint(100, 999)}"
+
+
+def generate_listing(item_id: int, category_filter: str = "all", run_id: str = None) -> Dict[str, Any]:
     """Generate a single realistic raw listing payload."""
+    if run_id is None:
+        run_id = _new_run_id()
     if category_filter == "phones":
         chosen_cat = "Phones & Mobile"
     elif category_filter == "furniture":
@@ -101,7 +112,7 @@ def generate_listing(item_id: int, category_filter: str = "all") -> Dict[str, An
         )
 
     return {
-        "listing_id": f"RR-{chosen_cat[:1].upper()}-{item_id:07d}",
+        "listing_id": f"RR-{chosen_cat[:1].upper()}-{item_id:07d}-{run_id}",
         "title": title,
         "description": desc,
         "price": price,
@@ -125,10 +136,11 @@ def generate_batch(count: int = 500, category: str = "all", output_dir: str = "d
     """
     os.makedirs(output_dir, exist_ok=True)
     timestamp_str = datetime.datetime.utcnow().strftime("%Y_%m_%d_%H%M%S")
-    filename = f"raw_{category}_{timestamp_str}.json"
+    run_id = _new_run_id()
+    filename = f"raw_{category}_{timestamp_str}_{run_id}.json"
     filepath = os.path.join(output_dir, filename)
 
-    items = [generate_listing(i + 1, category_filter=category) for i in range(count)]
+    items = [generate_listing(i + 1, category_filter=category, run_id=run_id) for i in range(count)]
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
