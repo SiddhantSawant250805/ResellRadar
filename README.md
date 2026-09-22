@@ -10,6 +10,9 @@ This component implements **Person 1's Role: Data Engineering (Ingestion + Raw S
 
 - **Data Ingestion Engine**: Scrapy Spider ([`scraper/spider.py`](scraper/spider.py)) & High-Throughput Synthetic Listing Generator ([`scraper/generator.py`](scraper/generator.py)) targeting **50,000+ listings**.
 - **Rate Limiting & Resilience**: AutoThrottle, request delays, user-agent rotation, and exponential backoff retry middleware ([`scraper/config.py`](scraper/config.py)).
+- **Data Quality Gate**: Schema & data-quality validator enforcing the raw-zone contract with a non-zero exit code on failure ([`scraper/validator.py`](scraper/validator.py)).
+- **JSONL Handoff Converter**: Streams raw JSON batches into JSON Lines for Person 2's Spark pipeline ([`scraper/jsonl_converter.py`](scraper/jsonl_converter.py)).
+- **HDFS Cluster Setup**: Pseudo-distributed Hadoop configuration guide ([`docs/HDFS_SETUP.md`](docs/HDFS_SETUP.md)).
 - **Raw Lake Zone**: Immutable JSON batched storage ([`data/raw/`](data/raw/)).
 - **HDFS Ingestion Engine**: Python HDFS sync module ([`hdfs_uploader.py`](hdfs_uploader.py)) supporting single-node Hadoop WebHDFS (`http://localhost:9870`), HDFS CLI, and local pseudo-emulated cluster mode.
 - **Backend Control Server**: FastAPI server ([`server.py`](server.py)) with REST & live telemetry streaming APIs.
@@ -27,8 +30,13 @@ ResellRadar/
 │   ├── config.py           # Scrapy autothrottle, delays & retry rules
 │   ├── spider.py           # Scrapy spider for marketplace scraping
 │   ├── generator.py        # 50,000+ synthetic listing generator
+│   ├── validator.py        # Raw schema & data-quality gate (SCHEMA.md)
+│   ├── jsonl_converter.py  # Raw JSON -> JSONL handoff for Person 2 (Spark)
 │   └── SCHEMA.md           # Raw JSON schema contract for Person 2 (Spark pipeline)
 ├── hdfs_uploader.py        # HDFS push engine (WebHDFS / CLI / Pseudo-Emulated)
+├── docs/
+│   ├── SPARK_SETUP.md      # Person 2: PySpark environment & run guide
+│   └── HDFS_SETUP.md       # Person 1: Hadoop/HDFS cluster setup guide
 ├── server.py               # FastAPI control server (ports & REST endpoints)
 ├── dashboard/              # Next.js 14 Control Panel Web App (Stitch UI)
 │   ├── app/                # Layouts & page views
@@ -96,6 +104,34 @@ python -c "from scraper.generator import generate_batch; generate_batch(count=50
 ```bash
 python hdfs_uploader.py
 # Pushes un-synced JSON files from data/raw/ to HDFS path /data/raw/
+```
+
+### Validate Raw Data Quality
+
+```bash
+python -m scraper.validator
+# Validates data/raw/*.json against scraper/SCHEMA.md
+# Checks: required fields, types, ISO-8601 timestamps, price > 0,
+# controlled vocabularies, delisted >= posted, cross-file ID uniqueness
+# Exit code 1 on failure (CI-friendly quality gate)
+```
+
+### Convert Raw JSON to JSONL (Person 1 -> Person 2 handoff)
+
+```bash
+python -m scraper.jsonl_converter
+# Rebuilds data/processed/raw_listings.jsonl from all data/raw/*.json batches
+# This is the exact input path consumed by spark_jobs/clean_normalize.py
+```
+
+### Full 50k+ Deliverable Run
+
+```bash
+python -c "from scraper.generator import generate_batch; generate_batch(count=50000, category='all')"
+python -m scraper.validator
+python hdfs_uploader.py
+python -m scraper.jsonl_converter
+# Raw lake validated, pushed to HDFS, and handed to the Spark pipeline
 ```
 
 ---

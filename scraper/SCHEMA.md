@@ -2,7 +2,7 @@
 
 **Author**: Person 1 (Data Engineering Lead)  
 **Target Consumers**: Person 2 (PySpark Cleaning & MinHash LSH Entity Resolution Pipeline)  
-**Version**: `1.0.0`  
+**Version**: `1.1.0`  
 **Storage Layer**: `data/raw/raw_*.json` & HDFS `/data/raw/`
 
 ---
@@ -20,7 +20,7 @@ This document specifies the immutable JSON schema contract for all raw second-ha
 
 | Field Name | Data Type | Nullable | Description & Constraints | Sample Value |
 | :--- | :--- | :--- | :--- | :--- |
-| `listing_id` | `String` | **No** | Unique identifier formatted as `RR-{CAT_CODE}-{ID}` or `scraped_{ID}`. | `"RR-P-0004291"` |
+| `listing_id` | `String` | **No** | Unique identifier formatted as `RR-{CAT_CODE}-{ID}-{RUN_ID}` or `scraped_{ID}`. The `RUN_ID` suffix makes IDs collision-safe across generator runs, machines and re-ingestions. | `"RR-P-0004291-48201377123"` |
 | `title` | `String` | **No** | Raw listing title extracted from marketplace source. | `"Apple iPhone 15 Pro Max 256GB Natural Titanium"` |
 | `description` | `String` | **No** | Freeform text description provided by seller. | `"Unlocked, mint condition with box. Battery health 98%."` |
 | `price` | `Float` | **No** | Item price in USD currency. Decimal float >= 0.0. | `890.00` |
@@ -42,7 +42,7 @@ This document specifies the immutable JSON schema contract for all raw second-ha
 ```json
 [
   {
-    "listing_id": "RR-P-0004291",
+    "listing_id": "RR-P-0004291-48201377123",
     "title": "Apple iPhone 15 Pro Max 256GB Natural Titanium - Like New - Unlocked with Box",
     "description": "Selling my Apple iPhone 15 Pro Max (256GB, Natural Titanium). Unlocked for all carriers. Battery health is at 98%. Comes with original USB-C cable.",
     "price": 890.00,
@@ -81,6 +81,34 @@ This document specifies the immutable JSON schema contract for all raw second-ha
 ## 4. PySpark StructType Schema Reference (For Person 2)
 
 Person 2 can load raw JSON files directly in PySpark with the explicit schema below:
+
+```text
+data/raw/raw_all_2026_09_22_143012_48201377123.json
+       └── raw_<category>_<YYYY_MM_DD_HHMMSS>_<run_id>.json
+```
+
+Run ID is embedded in both the filename and every `listing_id` in the batch,
+guaranteeing uniqueness across runs.
+
+---
+
+## 6. Quality Gate & JSONL Handoff (For Person 2)
+
+Before handing data to the Spark pipeline, Person 1 runs the quality gate and
+the JSONL converter shipped in this repository:
+
+```powershell
+# 1. Schema + data-quality validation (exit code 1 on failure)
+python -m scraper.validator
+
+# 2. Convert raw JSON arrays to JSON Lines for Spark
+python -m scraper.jsonl_converter
+# -> data/processed/raw_listings.jsonl  (input for spark_jobs/clean_normalize.py)
+```
+
+The validator enforces exactly this contract: required fields, types, ISO-8601
+UTC timestamps, non-negative non-zero prices, controlled vocabularies,
+`delisted_date >= posted_date`, and cross-file `listing_id` uniqueness.
 
 ```python
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
