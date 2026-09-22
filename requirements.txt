@@ -6,3 +6,5 @@ pyarrow>=15.0.0
 requests>=2.31.0
 pydantic>=2.6.0
 python-multipart>=0.0.9
+pyspark==4.2.0
+numpy
